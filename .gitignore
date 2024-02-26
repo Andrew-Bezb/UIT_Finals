@@ -1,3 +1,6 @@
 /venv/
+/tmp/
+/docs/
+/config.json/
 /deitabeiza.db
 /important stuff.py

@@ -178,6 +178,46 @@ class DoubleDragon:
             con.execute(
                 f''' update Tags set clicks = clicks + 1  WHERE id = '{id}' ''')
 
+    def get_client(self, client_chat_id: int):
+        """
+         Returns tuple of client data or None if there is no such.
+
+        :return: (id, name, tel, age, adress, chat_type, chat_id) or None
+        :param client_chat_id: id of client chat
+        :rtype: tuple
+        """
+        with self.con as con:
+            client = con.execute(f'''
+                           SELECT * from Clients
+                           WHERE chat_id = {client_chat_id}
+            ''')
+            client = client.fetchone()
+            if client:
+                return client
+            else:
+                return None
+
+    def get_admin(self, admin_chat_id: int):
+        """
+         Returns tuple of client data or None if there is no such.
+
+        :return: (id, name, tel, age, adress, chat_type, chat_id) or None
+        :param admin_chat_id: id of admin of chat
+        :rtype: tuple
+        """
+        with self.con as con:
+            admin = con.execute(f'''
+                           SELECT * from Admins
+                           WHERE tg_id = {admin_chat_id}
+            ''')
+            admin = admin.fetchone()
+            if admin:
+                return admin
+            else:
+                return None
+
+
+
 db = DoubleDragon()
 
 # misc shit nothing to see here

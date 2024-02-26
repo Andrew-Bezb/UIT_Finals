@@ -8,6 +8,7 @@ import telebot
 from telebot import types
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from thefuzz import fuzz, process
+import docx2txt
 
 from db_requests import db
 
@@ -91,6 +92,7 @@ def send_photo(chat_id, img_name, path):
                 bot_photos[img_name] = m.photo[0].file_id
 
 
+
 # main keyboard
 start_menu_keyb = InlineKeyboardMarkup()
 start_menu_keyb.add(InlineKeyboardButton('Список программ', callback_data='c;programs'))
@@ -116,44 +118,18 @@ start_menu_keyb.add(InlineKeyboardButton('Добавить инструкцию'
 #   tet - tag text gen
 #   neg; - negative instruction expirience
 #
-#
-#
-#
-#
+
 #
 # a; - admin side
+#   pl - programs list
+#   ml - list of manuals
+#   del - delete
+#   add - add
 #
 #
 #
 
 # key-gen territory
-
-# def key_gen(list_, num, fix_poz=5, flag="x", flag2="f"):
-#     if len(list_) % 5 == 1:
-#         fix_poz = 4
-#     vkinl = VkKeyboard(**settings2)
-#     if ((num + 1) * fix_poz) < len(list_):
-#         end_ = ((num + 1) * fix_poz)
-#     else:
-#         end_ = len(list_)
-#     for x in range(num * fix_poz, end_):
-#         vkinl.add_callback_button(label=list_[x], color=VkKeyboardColor.SECONDARY,
-#                                   payload={"type": flag2 + ' ;' + list_[x] + '; ' + str(x)})
-#         vkinl.add_line()
-#     if num == 0 and end_ != len(list_):
-#         vkinl.add_callback_button(label="Next", color=VkKeyboardColor.PRIMARY,
-#                                   payload={"type": flag + ' ' + str(num + 1)})
-#     elif num != 0 and end_ == len(list_):
-#         vkinl.add_callback_button(label="Back", color=VkKeyboardColor.PRIMARY,
-#                                   payload={"type": flag + ' ' + str(num - 1)})
-#     elif num != 0:
-#         vkinl.add_callback_button(label="Next", color=VkKeyboardColor.PRIMARY,
-#                                   payload={"type": flag + ' ' + str(num + 1)})
-#         vkinl.add_callback_button(label="Back", color=VkKeyboardColor.PRIMARY,
-#                                   payload={"type": flag + ' ' + str(num - 1)})
-#     return vkinl
-# keyb.add(InlineKeyboardButton('+', callback_data='c;o;r;+'),
-#          InlineKeyboardButton('+', callback_data='c;o;b;+'))
 
 def key_gen_programs_list(list_, num, fix_poz=5):
     # _list style: [(1, 'Windows'), (2, 'Winrar')]
@@ -292,15 +268,303 @@ def key_gen_neg_review(manual_id):
     return keyb
 
 
+def key_gen_admin_main():
+    keyb = InlineKeyboardMarkup()
+    keyb.add(InlineKeyboardButton("Список программ", callback_data='a;pl;list'))
+    keyb.add(InlineKeyboardButton('Добавить программу', callback_data='a;pl;add'))
+    keyb.add(InlineKeyboardButton("Список инструкций", callback_data='a;ml;list'))
+    keyb.add(InlineKeyboardButton('Добавить инструкцию', callback_data='a;ml;add'))
+    return keyb
+
+
+def key_gen_programs_list_admin(list_, num, fix_poz=9):
+    # _list style: [(1, 'Windows'), (2, 'Winrar')]
+    keyb = InlineKeyboardMarkup()
+    if len(list_) % 5 == 1:
+        fix_poz = 4
+    if ((num + 1) * fix_poz) < len(list_):
+        end_ = ((num + 1) * fix_poz)
+    else:
+        end_ = len(list_)
+    for x in range(num * fix_poz, end_):
+        keyb.add(InlineKeyboardButton(list_[x][1], callback_data=f'a;pl;del;{str(list_[x][0])}'))
+    if num == 0 and end_ != len(list_):
+        keyb.add(InlineKeyboardButton("Вперед", callback_data=f'a;pl;m;{str(num + 1)}'))
+    elif num != 0 and end_ == len(list_):
+        keyb.add(InlineKeyboardButton("Назад", callback_data=f'a;pl;m;{str(num - 1)}'))
+    elif num != 0:
+        keyb.add(InlineKeyboardButton("Назад", callback_data=f'a;pl;m;{str(num - 1)}'),
+                 InlineKeyboardButton("Вперед", callback_data=f'a;pl;m;{str(num + 1)}'))
+    keyb.add(InlineKeyboardButton("Меню", callback_data='a;main_menu'))
+    return keyb
+
+
+def key_gen_manuals_list_admin(list_, num, fix_poz=9):
+    # _list style: [(1, 'Установка Windows', 1),]
+    keyb = InlineKeyboardMarkup()
+    if len(list_) % 5 == 1:
+        fix_poz = 4
+    if ((num + 1) * fix_poz) < len(list_):
+        end_ = ((num + 1) * fix_poz)
+    else:
+        end_ = len(list_)
+    for x in range(num * fix_poz, end_):
+        keyb.add(InlineKeyboardButton(list_[x][1], callback_data=f'a;ml;del;{str(list_[x][0])}'))
+    if num == 0 and end_ != len(list_):
+        keyb.add(InlineKeyboardButton("Вперед", callback_data=f'a;ml;m;{str(num + 1)}'))
+    elif num != 0 and end_ == len(list_):
+        keyb.add(InlineKeyboardButton("Назад", callback_data=f'a;ml;m;{str(num - 1)}'))
+    elif num != 0:
+        keyb.add(InlineKeyboardButton("Назад", callback_data=f'a;ml;m;{str(num - 1)}'),
+                 InlineKeyboardButton("Вперед", callback_data=f'a;ml;m;{str(num + 1)}'))
+    keyb.add(InlineKeyboardButton("Меню", callback_data='a;main_menu'))
+    return keyb
+
+
+def key_gen_programs_delete_admin(program_id):
+    keyb = InlineKeyboardMarkup()
+    keyb.add(InlineKeyboardButton("Удалить программу", callback_data=f'a;pl;delete;{program_id}'))
+    keyb.add(InlineKeyboardButton("Меню", callback_data='a;main_menu'))
+    return keyb
+
+def key_gen_manual_delete_admin(manual_id):
+    keyb = InlineKeyboardMarkup()
+    keyb.add(InlineKeyboardButton("Удалить инструкцию", callback_data=f'a;ml;delete;{manual_id}'))
+    keyb.add(InlineKeyboardButton("Меню", callback_data='a;main_menu'))
+    return keyb
+
 # start main menu
 @bot.message_handler(commands=['start'])
 def start(message):
-    if message.chat.id not in sessions:
-        sessions[message.chat.id] = {}
+    chat_id = message.chat.id
+    if chat_id not in sessions:
+        sessions[chat_id] = {}
         print(sessions)
-    m = bot.send_message(message.chat.id, 'TechBot приветствует вас!', reply_markup=start_menu_keyb)
-    sessions[message.chat.id]['last_bot_message'] = m.message_id
+    if db.get_client(chat_id) is not None:
+        m = bot.send_message(chat_id, 'TechBot приветствует вас!', reply_markup=start_menu_keyb)
+        sessions[chat_id]['last_bot_message'] = m.message_id
+    else:
+        mes = bot.send_message(chat_id,
+                               'Подскажите, пожалуйста, как к вам обращаться?\nНе более 25 символлов')
+        sessions[chat_id]['manual_mes_id'] = mes.id
+        bot.register_next_step_handler(mes, getting_name)
 
+def getting_name(message):
+    try:
+        chat_id = message.chat.id
+        name = message.text[:25]
+        bot.delete_message(chat_id, sessions[chat_id]['manual_mes_id'])
+        mes = bot.send_message(chat_id,
+                               f'Приятно познакомиться {name}!\nДля продолжения работы кликните на /start')
+        db.insert('Clients', (name, 'phone', 'chat_type', chat_id))
+    except Exception as e:
+        bot.reply_to(message, 'oooops')
+
+
+@bot.message_handler(commands=['panel'])
+def start_adm(message):
+    print(admin_session)
+    chat_id = message.chat.id
+    admin_id = message.from_user.id
+    print(admin_id)
+    admin = db.get_admin(admin_id)
+    if admin is not None:
+        m = bot.send_message(chat_id, 'Административная панель', reply_markup=key_gen_admin_main())
+        if admin_id not in admin_session:
+            admin_session[admin_id] = {}
+            admin_session[admin_id]['name'] = admin[1]
+        admin_session[admin_id]['last_bot_message'] = m.message_id
+
+
+@bot.callback_query_handler(func=lambda call: call.data == 'a;main_menu')
+def adm_call_start(call):
+    bot.answer_callback_query(callback_query_id=call.id)
+    chat_id, message_id, data = sim_parse(call)
+    print(data)
+    print(admin_session)
+    bot.edit_message_text(chat_id=chat_id,
+                          message_id=message_id,
+                          text='Административная панель',
+                          reply_markup=key_gen_admin_main())
+
+"""
+    keyb.add(InlineKeyboardButton("Список программ", callback_data='a;pl;list'))
+    keyb.add(InlineKeyboardButton('Добавить программу', callback_data='a;pl;add'))
+    keyb.add(InlineKeyboardButton("Список инструкций", callback_data='a;ml;list'))
+    keyb.add(InlineKeyboardButton('Добавить инструкцию', callback_data='a;ml;add'))
+"""
+
+@bot.callback_query_handler(func=lambda call: any(cllb in call.data for cllb in ['a;main_menu', 'a;pl;', 'a;ml;']))
+def adm_start_handler(call):
+    bot.answer_callback_query(callback_query_id=call.id)
+    chat_id, message_id, data, text, keyb = adv_parse(call)
+    print(data)
+    print(sessions)
+    if data.split(';')[1] == 'main_menu':
+        'c;tet;m;{str(num + 1)};{str(manual_id)};{str(tag_id)}'
+        text = 'Административная панель'
+        bot.edit_message_text(chat_id=chat_id,
+                              message_id=message_id,
+                              text=text,
+                              reply_markup=key_gen_admin_main())
+    elif data.split(';')[1] == 'pl':
+        if data.split(';')[2] == 'list':
+            # gen list of prog
+            'del, m'
+            text = 'Список программ:'
+            programs_list = db.get_table_by_name('Programs', with_id=True)
+            keyb = key_gen_programs_list_admin(programs_list, 0)
+            bot.edit_message_text(chat_id=chat_id,
+                                  message_id=message_id,
+                                  text=text,
+                                  reply_markup=keyb)
+        elif data.split(';')[2] == 'm':
+            move = int(data.split(';')[3])
+            programs_list = db.get_table_by_name('Programs', with_id=True)
+            keyb = key_gen_programs_list_admin(programs_list, move)
+            bot.edit_message_text(chat_id=chat_id,
+                                  message_id=message_id,
+                                  text=text,
+                                  reply_markup=keyb)
+        elif data.split(';')[2] == 'del':
+            program_id = int(data.split(';')[3])
+            keyb = key_gen_programs_delete_admin(program_id)
+            text = f'Удаление программы полностью\n код программы = {program_id}'
+            bot.edit_message_text(chat_id=chat_id,
+                                  message_id=message_id,
+                                  text=text,
+                                  reply_markup=keyb)
+        elif data.split(';')[2] == 'delete':
+            program_id = int(data.split(';')[3])
+            db.del_table_content_by_ids('Programs', [program_id])
+            text = 'Программа успешно удалена'
+            keyb = InlineKeyboardMarkup()
+            keyb.add(InlineKeyboardButton("Меню", callback_data='a;main_menu'))
+            bot.edit_message_text(chat_id=chat_id,
+                                  message_id=message_id,
+                                  text=text,
+                                  reply_markup=keyb)
+        elif data.split(';')[2] == 'add':
+            bot.delete_message(chat_id, message_id)
+            mes = bot.send_message(chat_id, 'Введите название новой программы')
+            admin_session[chat_id] = {}
+            admin_session[chat_id]['manual_mes_id'] = mes.id
+            bot.register_next_step_handler(mes, add_program)
+
+    elif data.split(';')[1] == 'ml':
+        if data.split(';')[2] == 'list':
+            # gen list of manuals
+            text = 'Список инструкций:'
+            manu_list = db.get_table_by_name('Manuals', with_id=True)
+            keyb = key_gen_manuals_list_admin(manu_list, 0)
+            bot.edit_message_text(chat_id=chat_id,
+                                  message_id=message_id,
+                                  text=text,
+                                  reply_markup=keyb)
+        elif data.split(';')[2] == 'm':
+            move = int(data.split(';')[3])
+            manu_list = db.get_table_by_name('Manuals', with_id=True)
+            keyb = key_gen_manuals_list_admin(manu_list, move)
+            bot.edit_message_text(chat_id=chat_id,
+                                  message_id=message_id,
+                                  text=text,
+                                  reply_markup=keyb)
+        elif data.split(';')[2] == 'del':
+            manu_id = int(data.split(';')[3])
+            keyb = key_gen_manual_delete_admin(manu_id)
+            text = 'Удаление инструкции полностью'
+            bot.edit_message_text(chat_id=chat_id,
+                                  message_id=message_id,
+                                  text=text,
+                                  reply_markup=keyb)
+        elif data.split(';')[2] == 'delete':
+            manu_id = int(data.split(';')[3])
+            db.del_table_content_by_ids('Manuals', [manu_id])
+            text = 'Инструкция успешно удалена'
+            keyb = InlineKeyboardMarkup()
+            keyb.add(InlineKeyboardButton("Меню", callback_data='a;main_menu'))
+            bot.edit_message_text(chat_id=chat_id,
+                                  message_id=message_id,
+                                  text=text,
+                                  reply_markup=keyb)
+        elif data.split(';')[2] == 'add':
+            bot.delete_message(chat_id, message_id)
+            mes = bot.send_message(chat_id, 'Прикрепите файл с инструкцией, название файла - название инструкции;код программы\nК примеру - инструкия;3')
+            admin_session[chat_id] = {}
+            admin_session[chat_id]['manual_mes_id'] = mes.id
+            bot.register_next_step_handler(mes, add_manual)
+
+
+def add_program(message):
+    try:
+        chat_id = message.chat.id
+        new_program = message.text
+        bot.delete_message(chat_id, admin_session[chat_id]['manual_mes_id'])
+        admin_session[chat_id]['manual_mes_id'] = 0
+        db.insert('Programs', (new_program,))
+        text = 'Программа добавлена'
+        keyb = InlineKeyboardMarkup()
+        keyb.add(InlineKeyboardButton("Меню", callback_data='a;main_menu'))
+        print(new_program)
+        bot.send_message(chat_id, text, reply_markup=keyb)
+    except Exception as e:
+        print(e)
+        bot.reply_to(message, 'oooops')
+
+
+def add_manual(message):
+    try:
+        chat_id = message.chat.id
+        bot.delete_message(chat_id, admin_session[chat_id]['manual_mes_id'])
+        admin_session[chat_id]['manual_mes_id'] = 0
+        if message.content_type == 'document':
+            file_info = bot.get_file(message.document.file_id)
+            downloaded_file = bot.download_file(file_info.file_path)
+            manual_name = message.document.file_name.split(';')[0]
+            program_id = message.document.file_name.split(';')[1].split('.')[0]
+            src = 'docs_temp/' + manual_name
+            with open(src, 'wb') as new_file:
+                new_file.write(downloaded_file)
+                bot.reply_to(message, "Пожалуй, я сохраню это")
+                time.sleep(5)
+            manual_id = str(db.insert('Manuals', (manual_name, program_id)))
+            db.insert('Stars', (40, 10, manual_id))
+            path = f'docs_temp/{manual_name}'
+            print(path)
+            # extract text and write images in tmp
+            text = docx2txt.process(path, "img")
+            a = text.split('###')
+            print(a)
+            for index, text in enumerate(a):
+                a[index] = text.replace('\n', '').replace('\t', '')
+            print(a)
+            for text in a:
+                db.insert('Texts', (text, manual_id))
+            listy = []
+            temp_path = 'img/'
+            listy_for_cleansing = []
+            for file in os.listdir(temp_path):
+                if file.startswith(f'manual_{manual_id}__'):
+                    listy_for_cleansing.append(file)
+                    print(file)
+                    os.remove(temp_path+file)
+            print(os.listdir(temp_path))
+            for file in os.listdir(temp_path):
+                if file.startswith('image'):
+                    listy.append(file)
+                    print(file)
+                    # os.remove(temp_path+file)
+            print(listy)
+            for index, file in enumerate(listy):
+                os.rename(os.path.join(temp_path, file), os.path.join(temp_path, ''.join(['manual_', manual_id, '__', str(index), '_', '.jpeg'])))
+
+        # text = 'Программа добавлена'
+        # keyb = InlineKeyboardMarkup()
+        # keyb.add(InlineKeyboardButton("Меню", callback_data='a;main_menu'))
+        # bot.send_message(chat_id, text, reply_markup=keyb)
+    except Exception as e:
+        print(e)
+        bot.reply_to(message, 'oooops')
 
 # main menu
 @bot.callback_query_handler(func=lambda call: call.data == 'c;main_menu')
@@ -308,6 +572,7 @@ def call_start(call):
     bot.answer_callback_query(callback_query_id=call.id)
     chat_id, message_id, data = sim_parse(call)
     print(data)
+    print(sessions)
     bot.edit_message_text(chat_id=chat_id,
                           message_id=message_id,
                           text='TechBot приветствует вас!',
@@ -321,6 +586,7 @@ def call_start(call):
     bot.answer_callback_query(callback_query_id=call.id)
     chat_id, message_id, data = sim_parse(call)
     print(data)
+    print(sessions)
     programs_list = db.get_table_by_name('Programs', with_id=True)
     keyb = key_gen_programs_list(programs_list, 0)
     bot.edit_message_text(chat_id=chat_id,
@@ -330,10 +596,11 @@ def call_start(call):
 
 
 @bot.callback_query_handler(func=lambda call: 'c;p;m' in call.data or 'c;p;pm' in call.data)
-def order_start(call):
+def programs(call):
     bot.answer_callback_query(callback_query_id=call.id)
     chat_id, message_id, data, text, keyb = adv_parse(call)
     print(data)
+    print(sessions)
     if data.split(';')[2] == 'm':
         programs_list = db.get_table_by_name('Programs', with_id=True)
         keyb = key_gen_programs_list(programs_list, int(data.split(';')[3]))
@@ -360,10 +627,11 @@ def order_start(call):
 
 # manuals slider
 @bot.callback_query_handler(func=lambda call: 'c;man;m' in call.data or 'c;man;tx' in call.data)
-def order_start(call):
+def instructions(call):
     bot.answer_callback_query(callback_query_id=call.id)
     chat_id, message_id, data, text, keyb = adv_parse(call)
     print(data)
+    print(sessions)
     if data.split(';')[2] == 'm':
         move, program_id = int(data.split(';')[3]), int(data.split(';')[4])
         manuals_list = db.get_instructions_by_program_id(program_id)
@@ -380,7 +648,7 @@ def order_start(call):
             text_len = len(texts_list)
             text = texts_list[0][1]
             keyb = key_gen_texts(text_len, 0, program_id, manual_id)
-            img_name = 'manual' + '_' + str(manual_id) + '_' + '_' + '0' + '_' + '.png'
+            img_name = 'manual' + '_' + str(manual_id) + '_' + '_' + '0' + '_' + '.jpeg'
             path = f'img/{img_name}'
             send_photo(chat_id, img_name, path)
         bot.edit_message_text(chat_id=chat_id,
@@ -391,19 +659,19 @@ def order_start(call):
 
 # texts slider
 @bot.callback_query_handler(func=lambda call: 'c;t;m' in call.data or 'c;t;pos' in call.data)
-def order_start(call):
+def texts(call):
     bot.answer_callback_query(callback_query_id=call.id)
     chat_id, message_id, data, text, keyb = adv_parse(call)
     print(data)
+    print(sessions)
     if data.split(';')[2] == 'm':
         move, program_id, manual_id = int(data.split(';')[3]), int(data.split(';')[4]), int(data.split(';')[5])
         texts_list = db.get_items('Texts', str(manual_id), 'manual_id')
         text_len = len(texts_list)
         print(move)
         text = texts_list[move][1]
-        img_name = 'manual' + '_' + str(manual_id) + '_' + '_' + str(move) + '_' + '.png'
+        img_name = 'manual' + '_' + str(manual_id) + '_' + '_' + str(move) + '_' + '.jpeg'
         path = f'img/{img_name}'
-        'manual_5__0_.png'
         if move + 1 == text_len:
             score = db.get_manual_score(manual_id)
             text += f'\nОценка статьи: {score}'
@@ -428,11 +696,13 @@ def order_start(call):
 
 
 # gen pre-review
+
 @bot.callback_query_handler(func=lambda call: 'c;sc' in call.data)
-def order_start(call):
+def review(call):
     bot.answer_callback_query(callback_query_id=call.id)
     chat_id, message_id, data, text, keyb = adv_parse(call)
     print(data)
+    print(sessions)
     mark, manual_id = int(data.split(';')[2]), int(data.split(';')[3])
     text = 'Так же вы можете отправить отзыв к данной статье'
     keyb = key_gen_pre_review(manual_id)
@@ -444,24 +714,15 @@ def order_start(call):
 
 
 # gen review
+
 @bot.callback_query_handler(func=lambda call: 'c;prv' in call.data)
-def order_start(call):
+def review_pack(call):
     bot.answer_callback_query(callback_query_id=call.id)
     chat_id, message_id, data, text, keyb = adv_parse(call)
     manual_id = int(data.split(';')[2])
     print(data)
+    print(sessions)
     bot.delete_message(chat_id, message_id)
-    # manual_id = int(data.split(';')[2])
-    # text = 'Запишите ваш отзыв. После потдверждения ввода отзыв будет отправлен'
-    # keyb = InlineKeyboardMarkup()
-    # bot.edit_message_text(chat_id=chat_id,
-    #                       message_id=message_id,
-    #                       text=text,
-    #                       reply_markup=None)
-    msg = """\
-    Запишите ваш отзыв
-    После потдверждения ввода отзыв будет отправлен
-    """
     sessions[chat_id]['manual_rev_id'] = manual_id
     mes = bot.send_message(chat_id, 'Запишите ваш отзыв. После потдверждения ввода отзыв будет отправлен')
     bot.register_next_step_handler(mes, process_review)
@@ -479,11 +740,13 @@ def process_review(message):
 
 
 # gen tag list
+
 @bot.callback_query_handler(func=lambda call: 'c;tag' in call.data)
-def order_start(call):
+def search(call):
     bot.answer_callback_query(callback_query_id=call.id)
     chat_id, message_id, data, text, keyb = adv_parse(call)
     print(data)
+    print(sessions)
     bot.delete_message(chat_id, message_id)
 
     if 'last_bot_image_id' in sessions[chat_id]:
@@ -515,20 +778,21 @@ def process_instr(message):
 
 
 # tag list react
+
 @bot.callback_query_handler(func=lambda call: any(cllb in call.data for cllb in ['c;tet;m', 'c;tet;pos', 'c;tt', 'c;neg']))
-def order_start(call):
+def tags_all(call):
     bot.answer_callback_query(callback_query_id=call.id)
     chat_id, message_id, data, text, keyb = adv_parse(call)
     print(data)
+    print(sessions)
     if data.split(';')[2] == 'm':
         'c;tet;m;{str(num + 1)};{str(manual_id)};{str(tag_id)}'
         move, manual_id, tag_id = int(data.split(';')[3]), int(data.split(';')[4]), int(data.split(';')[5])
         texts_list = db.get_items('Texts', str(manual_id), 'manual_id')
         text_len = len(texts_list)
         text = texts_list[move][1]
-        img_name = 'manual' + '_' + str(manual_id) + '_' + '_' + str(move) + '_' + '.png'
+        img_name = 'manual' + '_' + str(manual_id) + '_' + '_' + str(move) + '_' + '.jpeg'
         path = f'img/{img_name}'
-        'manual_5__0_.png'
         if move + 1 == text_len:
             score = db.get_manual_score(manual_id)
             text += f'\nОценка статьи: {score}'
@@ -560,7 +824,7 @@ def order_start(call):
             text_len = len(texts_list)
             text = texts_list[0][1]
             keyb = key_gen_tag_texts(text_len, 0, manual_id, tag_id)
-            img_name = 'manual' + '_' + str(manual_id) + '_' + '_' + '0' + '_' + '.png'
+            img_name = 'manual' + '_' + str(manual_id) + '_' + '_' + '0' + '_' + '.jpeg'
             path = f'img/{img_name}'
             send_photo(chat_id, img_name, path)
             bot.edit_message_text(chat_id=chat_id,
