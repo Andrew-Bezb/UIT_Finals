@@ -15,8 +15,9 @@ from db_requests import db
 with open('config.json', 'r') as file:
     content = json.load(file)
     token = content['tg_token']
-    print('bot token: ' + token)
-
+    group_id = -int(content['group_id'])
+    print(group_id)
+# group_id = -1002019810166
 bot_photos = {}
 sessions = {}
 admin_session = {}
@@ -92,12 +93,21 @@ def send_photo(chat_id, img_name, path):
                 bot_photos[img_name] = m.photo[0].file_id
 
 
+def send_order(client_chat_type: str, client_chat_id: int, text: str):
+    global group_id
+    i_kb = InlineKeyboardMarkup()
+    i_kb.add(InlineKeyboardButton('Подтвердить', callback_data=f'adm;apr;{client_chat_type}{str(client_chat_id)}'),
+             InlineKeyboardButton('X Вне зоны охвата', callback_data=f'adm;deca;{client_chat_type}{str(client_chat_id)}'),
+             InlineKeyboardButton('X Неправильные данные', callback_data=f'adm;deco;{client_chat_type}{str(client_chat_id)}'))
+    i_kb.add(InlineKeyboardButton('Изменить заказ', callback_data=f'adm;ch;{client_chat_type}{str(client_chat_id)}'))
+    a = bot.send_message(group_id, text, reply_markup=i_kb)
+    return a
 
 # main keyboard
 start_menu_keyb = InlineKeyboardMarkup()
 start_menu_keyb.add(InlineKeyboardButton('Список программ', callback_data='c;programs'))
 start_menu_keyb.add(InlineKeyboardButton('Поиск инструкций', callback_data='c;tag'))
-start_menu_keyb.add(InlineKeyboardButton('Добавить инструкцию', callback_data=' '))
+start_menu_keyb.add(InlineKeyboardButton('Добавить инструкцию', callback_data='c;instr'))
 
 
 # callback legend
@@ -248,7 +258,7 @@ def key_gen_bad_result():
     keyb = InlineKeyboardMarkup()
     keyb.add(InlineKeyboardButton('Обратно к поиску', callback_data='c;tag'))
     keyb.add(InlineKeyboardButton("Меню", callback_data='c;main_menu'))
-    keyb.add(InlineKeyboardButton('Добавить инструкцию', callback_data=' '))
+    keyb.add(InlineKeyboardButton('Добавить инструкцию', callback_data='c;instr'))
     return keyb
 
 
@@ -263,7 +273,7 @@ def key_gen_neg_review(manual_id):
     keyb = InlineKeyboardMarkup()
     keyb.add(InlineKeyboardButton("Меню", callback_data='c;main_menu'))
     keyb.add(InlineKeyboardButton("Добавить отзыв", callback_data=f'c;prv;{str(manual_id)}'))
-    keyb.add(InlineKeyboardButton('Добавить инструкцию', callback_data=' '))
+    keyb.add(InlineKeyboardButton('Добавить инструкцию', callback_data='c;instr'))
     keyb.add(InlineKeyboardButton('Связаться с тех поддержкой', callback_data=' '))
     return keyb
 
@@ -387,12 +397,6 @@ def adm_call_start(call):
                           text='Административная панель',
                           reply_markup=key_gen_admin_main())
 
-"""
-    keyb.add(InlineKeyboardButton("Список программ", callback_data='a;pl;list'))
-    keyb.add(InlineKeyboardButton('Добавить программу', callback_data='a;pl;add'))
-    keyb.add(InlineKeyboardButton("Список инструкций", callback_data='a;ml;list'))
-    keyb.add(InlineKeyboardButton('Добавить инструкцию', callback_data='a;ml;add'))
-"""
 
 @bot.callback_query_handler(func=lambda call: any(cllb in call.data for cllb in ['a;main_menu', 'a;pl;', 'a;ml;']))
 def adm_start_handler(call):
@@ -557,11 +561,6 @@ def add_manual(message):
             print(listy)
             for index, file in enumerate(listy):
                 os.rename(os.path.join(temp_path, file), os.path.join(temp_path, ''.join(['manual_', manual_id, '__', str(index), '_', '.jpeg'])))
-
-        # text = 'Программа добавлена'
-        # keyb = InlineKeyboardMarkup()
-        # keyb.add(InlineKeyboardButton("Меню", callback_data='a;main_menu'))
-        # bot.send_message(chat_id, text, reply_markup=keyb)
     except Exception as e:
         print(e)
         bot.reply_to(message, 'oooops')
@@ -729,18 +728,20 @@ def review_pack(call):
 
 
 def process_review(message):
-    try:
-        chat_id = message.chat.id
-        review = message.text
-        print(review+str(sessions[chat_id]['manual_rev_id']))
-        bot.send_message(chat_id, 'Ваш отзыв отправлен\nМы ценим ваше мнение, спасибо за то что уделили время!')
-        sessions[chat_id]['manual_rev_id'] = 0
-    except Exception as e:
-        bot.reply_to(message, 'oooops')
+    # try:
+    chat_id = message.chat.id
+    review = message.text
+    review += f"\nОтправлено пользователем об мануале с id {sessions[chat_id]['manual_rev_id']}"
+    # print(review+str(sessions[chat_id]['manual_rev_id']))
+    send_order('TG', chat_id, review)
+    bot.send_message(chat_id, 'Ваш отзыв отправлен\nМы ценим ваше мнение, спасибо за то что уделили время!')
+    sessions[chat_id]['manual_rev_id'] = 0
+    # except Exception as e:
+    #     print(e)
+    #     bot.reply_to(message, 'oooops')
 
 
 # gen tag list
-
 @bot.callback_query_handler(func=lambda call: 'c;tag' in call.data)
 def search(call):
     bot.answer_callback_query(callback_query_id=call.id)
@@ -757,6 +758,31 @@ def search(call):
     mes = bot.send_message(chat_id, 'Запишите ваш запрос\nПосле потдверждения ввода вам будет предоставлен список доступных инструкций')
     sessions[chat_id]['manual_mes_id'] = mes.id
     bot.register_next_step_handler(mes, process_instr)
+
+
+@bot.callback_query_handler(func=lambda call: 'c;instr' in call.data)
+def client_instruction(call):
+    bot.answer_callback_query(callback_query_id=call.id)
+    chat_id, message_id, data, text, keyb = adv_parse(call)
+    print(data)
+    print(sessions)
+    bot.delete_message(chat_id, message_id)
+    mes = bot.send_message(chat_id, 'Прикрепите документ с инструкцией')
+    sessions[chat_id]['manual_mes_id'] = mes.id
+    bot.register_next_step_handler(mes, manual_from_client)
+
+def manual_from_client(message):
+    try:
+        chat_id = message.chat.id
+        bot.delete_message(chat_id, sessions[chat_id]['manual_mes_id'])
+        sessions[chat_id]['manual_mes_id'] = 0
+        if message.content_type == 'document':
+            file_info = bot.get_file(message.document.file_id)
+            downloaded_file = bot.download_file(file_info.file_path)
+            print('приняли файл')
+    except Exception as e:
+        print(e)
+        bot.reply_to(message, 'oooops')
 
 
 def process_instr(message):
@@ -778,7 +804,6 @@ def process_instr(message):
 
 
 # tag list react
-
 @bot.callback_query_handler(func=lambda call: any(cllb in call.data for cllb in ['c;tet;m', 'c;tet;pos', 'c;tt', 'c;neg']))
 def tags_all(call):
     bot.answer_callback_query(callback_query_id=call.id)
